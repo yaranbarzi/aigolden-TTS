@@ -38,7 +38,7 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
     bytes_per_sample = bits_per_sample // 8
     block_align = num_channels * bytes_per_sample
     byte_rate = sample_rate * block_align
-    chunk_size = 36 + data_size  # اندازه کل فایل WAV (هدر + داده)
+    chunk_size = 36 + data_size
 
     header = struct.pack(
         "<4sI4s4sIHHIIHH4sI",
@@ -46,8 +46,8 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
         chunk_size,
         b"WAVE",
         b"fmt ",
-        16,  # اندازه زیرقسمت fmt
-        1,   # فرمت PCM
+        16,
+        1,
         num_channels,
         sample_rate,
         byte_rate,
@@ -61,7 +61,7 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
 def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     """Parse audio MIME type to extract parameters."""
     bits_per_sample = 16
-    rate = 24000  # نرخ پیش‌فرض
+    rate = 24000
 
     parts = mime_type.split(";")
     for param in parts:
@@ -192,7 +192,7 @@ def create_zip_file(file_paths, zip_name):
 
 def generate_audio(text_input, prompt_input, selected_voice, output_base_name, 
                    api_key_input_field, model, temperature, use_file=False, 
-                   max_chunk_size=3800, sleep_time=2, merge_files=True, 
+                   max_chunk_size=3800, sleep_time=10, merge_files=True, 
                    delete_partials=True):
     """
     Generate audio from text input with specified parameters.
@@ -291,12 +291,14 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
 
         try:
             chunk_filename = f"{output_base_name}_part_{i+1:03d}"
+            audio_generated = False
             
             for chunk_data in client.models.generate_content_stream(
                 model=model,
                 contents=contents,
                 config=generate_content_config,
             ):
+                print(f"ℹ️ پاسخ API برای قطعه {i+1} دریافت شد.")  # دیباگ
                 if (
                     chunk_data.candidates
                     and chunk_data.candidates[0].content
@@ -316,10 +318,16 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
                     generated_file_path = save_binary_file(f"{chunk_filename}{file_extension}", data_buffer)
                     generated_files.append(generated_file_path)
                     print(f"✅ قطعه {i+1} تولید شد: {generated_file_path}")
+                    audio_generated = True
                     break
                 else:
                     if chunk_data.text:
-                        print(f"ℹ️ پیام متنی از API: {chunk_data.text}")
+                        print(f"⚠️ پیام متنی از API برای قطعه {i+1}: {chunk_data.text}")
+                    else:
+                        print(f"⚠️ پاسخ API برای قطعه {i+1} شامل داده صوتی نیست.")
+
+            if not audio_generated:
+                print(f"❌ هیچ داده صوتی برای قطعه {i+1} تولید نشد.")
 
         except Exception as e:
             print(f"❌ خطا در تولید قطعه {i+1}: {e}")
@@ -338,15 +346,15 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
     # Merge audio files if enabled
     if merge_files and len(generated_files) > 1:
         merged_filename = f"{output_base_name}_merged.wav"
-        if merge_audio_files_func(generated_files, merged_filename):
+        if merge_audio_files_func(generated_files, sorted(generated_files), merged_filename):
             final_audio_file = merged_filename
-            print(f"🎵 فایل نهایی ادغام شده: {merged_filename}")
+            print(f"🎥 فایل نهایی ادغام شده: {merged_filename}")
             
             if delete_partials:
-                for file_path in generated_files:
+                for i, file_path in enumerate(generated_files):
                     try:
-                        os.remove(file_path)
-                        print(f"🗑️ فایل جزئی حذف شد: {file_path}")
+                        os.remove(f"{file_path}")
+                        print(f"{file_path}")
                     except:
                         pass
         else:
@@ -355,16 +363,18 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
     # Create zip file if no merge
     if not final_audio_file and len(generated_files) > 1:
         zip_filename = f"{output_base_name}_all_parts.zip"
-        create_zip_file(generated_files, zip_filename)
-
+        if create_zip_file(generated_files, zip_filename):
+            final_audio_file = zip_filename
+            print(f"📦 فایل ZIP ایجاد شد: {zip_filename}")
+    
     # Play the audio
-    if final_audio_file and os.path.exists(final_audio_file):
-        print(f"▶️ پخش فایل ادغام شده: {final_audio_file}")
-        display(Audio(final_audio_file, autoplay=True))
+    if final_audio_file and os.path.exists(final_audio_file)):
+        print(f"🎥 🎧 فایل: {final_audio_file}")
+        display(Audio(final_audio_file, autoplay=False))  # غیرفعال کردن پخش خودکار
     elif generated_files and os.path.exists(generated_files[0]):
-        print(f"▶️ پخش اولین قطعه: {generated_files[0]}")
-        display(Audio(generated_files[0], autoplay=True))
+        print(f"🎥 🎧 فایل اول: {generated_files[0]}")
+        display(Audio(generated_files[0], autoplay=False))  # غیرفعال کردن پخش خودکار
     else:
-        print("🛑 پخش صدا امکان‌پذیر نیست زیرا فایل صوتی تولید نشده است.")
+        print("⚠️ پخش صدا امکان‌پذیر نیست زیرا فایل صوتی تولید نشده است.")
 
     return generated_files, final_audio_file
