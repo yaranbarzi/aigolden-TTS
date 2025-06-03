@@ -1,3 +1,7 @@
+# Created by aigolden
+# Source: https://github.com/yaranbarzi/aigolden-TTS
+# License: MIT
+
 import base64
 import mimetypes
 import os
@@ -37,7 +41,7 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
     chunk_size = 36 + data_size  # اندازه کل فایل WAV (هدر + داده)
 
     header = struct.pack(
-        "<4sI4s-4sIHHIIHH4sI",
+        "<4sI4s4sIHHIIHH4sI",
         b"RIFF",
         chunk_size,
         b"WAVE",
@@ -57,7 +61,7 @@ def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
 def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
     """Parse audio MIME type to extract parameters."""
     bits_per_sample = 16
-    sample_rate = 16000  # نرخ پیش‌فرض اصلاح‌شده
+    rate = 24000  # نرخ پیش‌فرض
 
     parts = mime_type.split(";")
     for param in parts:
@@ -73,11 +77,11 @@ def parse_audio_mime_type(mime_type: str) -> dict[str, int | None]:
                 bits_per_sample = int(param.split("L", 1)[1])
             except (ValueError, IndexError):
                 pass
-    return {"bits_per_sample": bits_per_sample, "rate": sample_rate}
+    return {"bits_per_sample": bits_per_sample, "rate": rate}
 
 def load_text_file():
     """Load text file containing only the main text (no prompt)."""
-    print("📁 لطفاً فایل متنی خود را آپلود کنید کنید...")
+    print("📁 لطفاً فایل متنی خود را آپلود کنید...")
     print("💡 فایل فقط باید شامل متن اصلی باشد (پرامپت از فیلد بالا خوانده می‌شود)")
     
     uploaded = files.upload()
@@ -302,8 +306,10 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
                     inline_data = chunk_data.candidates[0].content.parts[0].inline_data
                     data_buffer = inline_data.data
                     file_extension = mimetypes.guess_extension(inline_data.mime_type)
-                    print(f"ℹ️ MIME Type: {inline_data.mime_type}, Data Size: {len(data_buffer)} bytes")  # برای دیباگ
-                    if file_extension is None:
+                    print(f"ℹ️ MIME Type: {inline_data.mime_type}, Data Size: {len(data_buffer)} bytes")
+                    if inline_data.mime_type == "audio/wav":
+                        file_extension = ".wav"
+                    else:
                         file_extension = ".wav"
                         data_buffer = convert_to_wav(inline_data.data, inline_data.mime_type)
 
