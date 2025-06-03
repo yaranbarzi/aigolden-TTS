@@ -321,7 +321,7 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
                     audio_generated = True
                     break
                 else:
-                    if chunk_data.text:
+                    if hasattr(chunk_data, 'text') and chunk_data.text:
                         print(f"⚠️ پیام متنی از API برای قطعه {i+1}: {chunk_data.text}")
                     else:
                         print(f"⚠️ پاسخ API برای قطعه {i+1} شامل داده صوتی نیست.")
