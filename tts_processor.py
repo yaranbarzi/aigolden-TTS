@@ -368,7 +368,7 @@ def generate_audio(text_input, prompt_input, selected_voice, output_base_name,
             print(f"📦 فایل ZIP ایجاد شد: {zip_filename}")
     
     # Play the audio
-    if final_audio_file and os.path.exists(final_audio_file)):
+    if final_audio_file and os.path.exists(final_audio_file):
         print(f"🎥 🎧 فایل: {final_audio_file}")
         display(Audio(final_audio_file, autoplay=False))  # غیرفعال کردن پخش خودکار
     elif generated_files and os.path.exists(generated_files[0]):
